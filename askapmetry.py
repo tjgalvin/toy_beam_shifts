@@ -534,7 +534,10 @@ def reseed_initial_fixed_catalogue(catalogues: Catalogues) -> Catalogues:
     return catalogues    
 
 def perform_iterative_shifter(
-    catalogues: Catalogues, passes: int = 1, gather_statistics: bool = True
+    catalogues: Catalogues, 
+    passes: int = 1, 
+    gather_statistics: bool = True,
+    output_prefix: str | None = None
 ) -> Catalogues:
     """Attempt to shift catalogues to a common reference frame. A seed catalogue
     is selected, then a catalogue at a time is selected and aligned. This may be
@@ -544,6 +547,7 @@ def perform_iterative_shifter(
         catalogues (Catalogues): Catalogues that should be aligned
         passes (int, optional): How many passes over all catalogues should be performed. Defaults to 1.
         gather_statistics (bool, optional): Whether statistcs across the convergence should be collected. This can be time consuming as all catalogues are matched to one another. Defaults to True.
+        output_prefix (str | None, optional): The prefix to attach to output products. Defaults to None.
 
     Returns:
         Catalogues: The shifted catalogues
@@ -576,7 +580,8 @@ def perform_iterative_shifter(
             logger.info(f"Shifted in round {step}")
     
     if step_statistics:
-        plot_iterative_shift_stats(step_statistics=step_statistics)
+        step_plot = Path(output_prefix + "stats_step_info.png") if output_prefix else Path("stats_step_info.png")
+        plot_iterative_shift_stats(step_statistics=step_statistics, output_path=step_plot)
     
     return catalogues
 
@@ -601,18 +606,39 @@ def save_catalogue_shift_positions(catalogues: Catalogues, output_path: Path | N
     
     return output_path
 
-def beam_wise_shifts(catalogue_paths: Paths) -> Catalogues:
+def beam_wise_shifts(
+    catalogue_paths: Paths,
+    output_prefix: str | None = None
+) -> Catalogues:
+    """Load in a set of catalogues and attempt to align them
+    onto an internally consisten positional reference frame
+
+    Args:
+        catalogue_paths (Paths): The set of fits component cataloges to load
+        output_prefix (str | None, optional): The prefix to use for output products. If None the default names are used. Defaults to None.
+
+    Returns:
+        Catalogues: The catalogues that have been shifted
+    """
     
     logger.info(f"Will be processing {len(catalogue_paths)} catalogues")
     catalogues: Catalogues = load_catalogues(catalogue_paths=catalogue_paths)
     
     match_matrix: MatchMatrix
-    match_matrix, _ = make_and_plot_match_matrix(catalogues=catalogues)
+    match_matrix_plot = Path(output_prefix+'match_matrix.png') if output_prefix else Path("match_matrix.png")
+    match_matrix, _ = make_and_plot_match_matrix(catalogues=catalogues, plot_path=match_matrix_plot)
+
 
     catalogues = set_seed_catalogues(catalogues=catalogues, match_matrix=match_matrix)    
-    catalogues = perform_iterative_shifter(catalogues=catalogues, passes=1, gather_statistics=True)
+    catalogues = perform_iterative_shifter(
+        catalogues=catalogues, 
+        passes=1, 
+        gather_statistics=True,
+        output_prefix=output_prefix
+    )
 
-    save_catalogue_shift_positions(catalogues=catalogues)
+    shift_path = Path(output_prefix + "shifts.csv") if output_prefix else Path("shifts.csv")
+    save_catalogue_shift_positions(catalogues=catalogues, output_path=shift_path)
     
     return catalogues
     
@@ -620,6 +646,7 @@ def get_parser() -> ArgumentParser:
     parser = ArgumentParser(description="Looking at per-beam shifts")
     
     parser.add_argument('paths', nargs=36, type=Path, help="The beam wise catalogues to examine")
+    parser.add_argument('-o', '--output-prefix', type=str, help="The prefix to base outputs onto")
 
     return parser
 
@@ -628,7 +655,10 @@ def cli() -> None:
     
     args = parser.parse_args()
 
-    beam_wise_shifts(catalogue_paths=args.paths)
+    beam_wise_shifts(
+        catalogue_paths=args.paths,
+        output_prefix=args.output_prefix
+    )
 
 
 if __name__ == "__main__":
