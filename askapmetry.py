@@ -601,7 +601,7 @@ def save_catalogue_shift_positions(catalogues: Catalogues, output_path: Path | N
     
     return output_path
 
-def beam_wise_shifts(catalogue_paths: Paths) -> tuple[Catalogue, ...]:
+def beam_wise_shifts(catalogue_paths: Paths) -> Catalogues:
     
     logger.info(f"Will be processing {len(catalogue_paths)} catalogues")
     catalogues: Catalogues = load_catalogues(catalogue_paths=catalogue_paths)
@@ -614,6 +614,7 @@ def beam_wise_shifts(catalogue_paths: Paths) -> tuple[Catalogue, ...]:
 
     save_catalogue_shift_positions(catalogues=catalogues)
     
+    return catalogues
     
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser(description="Looking at per-beam shifts")
