@@ -580,6 +580,27 @@ def perform_iterative_shifter(
     
     return catalogues
 
+def save_catalogue_shift_positions(catalogues: Catalogues, output_path: Path | None = None) -> Path:
+
+    from pandas import DataFrame    
+    output_path = output_path if output_path else Path("shifts.csv")
+
+    df = DataFrame(
+        [
+            {
+                'path': catalogue.path, 
+                'beam': catalogue.beam, 
+                'd_ra': catalogue.offset.ra, 
+                'd_dec': catalogue.offset.dec
+            } for catalogue in catalogues
+        ]
+    )
+    
+    logger.info(f"Writing {output_path}")
+    df.to_csv(output_path, index=False)
+    
+    return output_path
+
 def beam_wise_shifts(catalogue_paths: Paths) -> tuple[Catalogue, ...]:
     
     logger.info(f"Will be processing {len(catalogue_paths)} catalogues")
@@ -589,8 +610,10 @@ def beam_wise_shifts(catalogue_paths: Paths) -> tuple[Catalogue, ...]:
     match_matrix, _ = make_and_plot_match_matrix(catalogues=catalogues)
 
     catalogues = set_seed_catalogues(catalogues=catalogues, match_matrix=match_matrix)    
-    perform_iterative_shifter(catalogues=catalogues, passes=1, gather_statistics=True)
+    catalogues = perform_iterative_shifter(catalogues=catalogues, passes=1, gather_statistics=True)
 
+    save_catalogue_shift_positions(catalogues=catalogues)
+    
     
 def get_parser() -> ArgumentParser:
     parser = ArgumentParser(description="Looking at per-beam shifts")
